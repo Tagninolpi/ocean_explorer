@@ -4,9 +4,198 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Ocean Explorer</title>
+    <link rel="stylesheet" href="/static/css/style.css">
 </head>
 <body>
-    <h1>Ocean Explorer</h1>
-    <p>Server is running.</p>
+    <!-- PLAYER IDENTIFICATION PAGE -->
+    <div id="page-identification" class="page active">
+        <h1>Ocean Explorer</h1>
+        <div class="button-container">
+            <button onclick="showPage('page-login')">Log In</button>
+            <button onclick="showPage('page-create')">Create New Account</button>
+        </div>
+    </div>
+
+    <!-- LOGIN PAGE -->
+    <div id="page-login" class="page">
+        <h1>Log In</h1>
+        <div class="form-container">
+            <input type="text" id="login-username" placeholder="Username" maxlength="12">
+            <input type="password" id="login-password" placeholder="Password" maxlength="12">
+            <button onclick="handleLogin()">Log In</button>
+            <button onclick="showPage('page-identification')">Back</button>
+        </div>
+        <p id="login-error" class="error-msg"></p>
+    </div>
+
+    <!-- CREATE ACCOUNT PAGE -->
+    <div id="page-create" class="page">
+        <h1>Create New Account</h1>
+        <div class="form-container">
+            <input type="text" id="create-username" placeholder="Username" maxlength="12">
+            <input type="password" id="create-password" placeholder="Password" maxlength="12">
+            <p class="warning-msg">Don't use a username or password you use elsewhere</p>
+            <button onclick="handleCreate()">Create</button>
+            <button onclick="showPage('page-identification')">Back</button>
+        </div>
+        <p id="create-error" class="error-msg"></p>
+    </div>
+
+    <!-- MAIN MENU PAGE -->
+    <div id="page-main-menu" class="page">
+        <div class="top-bar">
+            <span id="display-username">Username</span>
+            <button onclick="toggleSettings()">Settings</button>
+        </div>
+        <div id="settings-panel" class="hidden">
+            <button onclick="handleLogout()">Logout</button>
+            <button>Change Username</button>
+            <button>Credits</button>
+        </div>
+        <div class="gamemode-grid">
+            <div class="gamemode-card active-mode" onclick="showPage('page-boat-selection')">
+                <p>Infinite</p>
+            </div>
+            <div class="gamemode-card locked">
+                <p>Campaign</p>
+                <p class="coming-soon">Coming Soon</p>
+            </div>
+            <div class="gamemode-card locked">
+                <p>Challenge</p>
+                <p class="coming-soon">Coming Soon</p>
+            </div>
+            <div class="gamemode-card locked">
+                <p>Multiplayer</p>
+                <p class="coming-soon">Coming Soon</p>
+            </div>
+        </div>
+        <div class="bottom-bar">
+            <button class="circle-btn" onclick="showPage('page-leaderboards')">Leaderboards</button>
+            <button class="circle-btn" onclick="showPage('page-shipyard')">Shipyard</button>
+            <button class="circle-btn" onclick="showPage('page-bestiary')">Bestiary</button>
+            <button class="circle-btn" onclick="showPage('page-equipment-catalog')">Equipment</button>
+            <button class="circle-btn" onclick="showPage('page-scrap-reference')">Scrap</button>
+        </div>
+    </div>
+
+    <!-- BOAT SELECTION PAGE -->
+    <div id="page-boat-selection" class="page">
+        <h1>Select Your Boat</h1>
+        <div id="boat-selection-grid" class="boat-grid"></div>
+        <div class="button-container">
+            <button onclick="startGame()" id="start-btn" disabled>Start</button>
+            <button onclick="showPage('page-main-menu')">Back to Main Menu</button>
+        </div>
+    </div>
+
+    <!-- SHIPYARD PAGE -->
+    <div id="page-shipyard" class="page">
+        <h1>Shipyard</h1>
+        <div id="shipyard-grid" class="boat-grid"></div>
+        <button onclick="showPage('page-main-menu')">Back to Main Menu</button>
+    </div>
+
+    <!-- BOAT DETAIL PAGE -->
+    <div id="page-boat-detail" class="page">
+        <div id="boat-detail-content"></div>
+        <button onclick="showPage('page-shipyard')">Back to Shipyard</button>
+    </div>
+
+    <!-- BESTIARY PAGE -->
+    <div id="page-bestiary" class="page">
+        <h1>Bestiary</h1>
+        <div id="bestiary-grid" class="enemy-grid"></div>
+        <button onclick="showPage('page-main-menu')">Back to Main Menu</button>
+    </div>
+
+    <!-- ENEMY DETAIL PAGE -->
+    <div id="page-enemy-detail" class="page">
+        <div id="enemy-detail-content"></div>
+        <button onclick="showPage('page-bestiary')">Back to Bestiary</button>
+    </div>
+
+    <!-- EQUIPMENT CATALOG PAGE -->
+    <div id="page-equipment-catalog" class="page">
+        <h1>Equipment</h1>
+        <div id="equipment-grid" class="equipment-grid"></div>
+        <button onclick="showPage('page-main-menu')">Back to Main Menu</button>
+    </div>
+
+    <!-- EQUIPMENT DETAIL PAGE -->
+    <div id="page-equipment-detail" class="page">
+        <div id="equipment-detail-content"></div>
+        <button onclick="showPage('page-equipment-catalog')">Back to Equipment</button>
+    </div>
+
+    <!-- SCRAP REFERENCE PAGE -->
+    <div id="page-scrap-reference" class="page">
+        <h1>Scrap Reference</h1>
+        <p class="notice">When an enemy is defeated it drops either scrap or one piece of its equipment — never both. There is a 90% chance of dropping scrap, where the rarity tier matches the enemy's rarity. There is a 10% chance of dropping one equipment item from its loadout instead, with rarer equipment being less likely to drop.</p>
+        <div id="scrap-bands"></div>
+        <button onclick="showPage('page-main-menu')">Back to Main Menu</button>
+    </div>
+
+    <!-- LEADERBOARDS PAGE -->
+    <div id="page-leaderboards" class="page">
+        <h1>Leaderboards</h1>
+        <p>Coming soon</p>
+        <button onclick="showPage('page-main-menu')">Back to Main Menu</button>
+    </div>
+
+    <!-- GAME PAGE -->
+    <div id="page-game" class="page">
+        <!-- LEFT PANEL -->
+        <div id="game-left-panel">
+            <span id="game-boat-name">Boat Name</span>
+
+            <!-- HP Bar -->
+            <div id="game-hp-bar-container">
+                <div id="game-hp-bar"></div>
+                <span id="game-hp-numbers">100 / 100</span>
+            </div>
+
+            <!-- Stats -->
+            <div id="game-stats">
+                <span><label>Speed</label><value id="stat-speed">-</value></span>
+                <span><label>Max Speed</label><value id="stat-max-speed">-</value></span>
+                <span><label>Turn</label><value id="stat-turn">-</value></span>
+                <span><label>Regen</label><value id="stat-regen">-</value></span>
+                <span><label>Reach</label><value id="stat-reach">-</value></span>
+                <span><label>Zoom</label><value id="stat-zoom">-</value></span>
+                <span><label>Cargo</label><value id="stat-cargo">-</value></span>
+            </div>
+
+            <!-- Abilities -->
+            <div id="game-abilities">
+                <div class="game-abilities-title">Abilities</div>
+            </div>
+
+            <!-- Equipment slots -->
+            <div id="game-equipment-slots">
+                <div class="equipment-title">Equipment</div>
+            </div>
+
+            <!-- Wave info -->
+            <div id="game-wave-info">
+                <div class="game-wave-title">Wave Info</div>
+                <span>Wave: <span id="game-wave-number">1</span></span>
+                <span>Enemies: <span id="game-enemy-count">0</span></span>
+                <span>Alive: <span id="game-enemy-alive">0</span></span>
+            </div>
+        </div>
+
+        <!-- RIGHT PANEL - square canvas -->
+        <div id="game-right-panel">
+            <canvas id="game-canvas"></canvas>
+        </div>
+    </div>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/sat/0.9.0/SAT.min.js"></script>
+    <script src="/static/js/data.js"></script>
+    <script src="/static/js/game/equipment.js"></script>
+    <script src="/static/js/game/map.js"></script>
+    <script src="/static/js/game/player.js"></script>
+    <script src="/static/js/game/collision.js"></script>
+    <script src="/static/js/ui/pages.js"></script>
+    <script src="/static/js/game/game.js"></script>
 </body>
 </html>
