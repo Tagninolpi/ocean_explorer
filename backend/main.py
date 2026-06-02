@@ -128,6 +128,11 @@ def record_game_result(body: GameResultRequest, username: str = Depends(get_user
     }).eq("username", username).execute()
     return {"ok": True}
 
+# ── Health check ─────────────────────────────────────────────────────────────
+@app.get("/health")
+def health():
+    return {"status": "ok"}
+
 # ── Static files ──────────────────────────────────────────────────────────────
 app.mount("/static", StaticFiles(directory=str(FRONTEND_DIR)), name="static")
 
