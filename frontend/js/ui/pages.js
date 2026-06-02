@@ -5,45 +5,8 @@ function toggleSettings() {
     panel.classList.toggle('hidden');
 }
 
-// ---- AUTH (placeholder — no database yet) ----
-const session = { username: null };
-
-function handleLogin() {
-    const username = document.getElementById('login-username').value.trim();
-    const password = document.getElementById('login-password').value.trim();
-    const error = document.getElementById('login-error');
-
-    if (!username || !password) {
-        error.textContent = 'Please fill in both fields.';
-        return;
-    }
-    // Placeholder: accept any input for now
-    session.username = username;
-    document.getElementById('display-username').textContent = username;
-    error.textContent = '';
-    showPage('page-main-menu');
-}
-
-function handleCreate() {
-    const username = document.getElementById('create-username').value.trim();
-    const password = document.getElementById('create-password').value.trim();
-    const error = document.getElementById('create-error');
-
-    if (!username || !password) {
-        error.textContent = 'Please fill in both fields.';
-        return;
-    }
-    // Placeholder: accept any input for now
-    session.username = username;
-    document.getElementById('display-username').textContent = username;
-    error.textContent = '';
-    showPage('page-main-menu');
-}
-
-function handleLogout() {
-    session.username = null;
-    showPage('page-identification');
-}
+// Note: handleLogin, handleCreate, handleLogout, session
+// are defined in account.js — do not redefine here.
 
 // ---- BOAT SELECTION ----
 let selectedBoat = null;
@@ -52,12 +15,11 @@ function showPage(pageId) {
     document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
     document.getElementById(pageId).classList.add('active');
 
-    // Populate grids when navigating to those pages
-    if (pageId === 'page-boat-selection') populateBoatSelection();
-    if (pageId === 'page-shipyard') populateShipyard();
-    if (pageId === 'page-bestiary') populateBestiary();
+    if (pageId === 'page-boat-selection')    populateBoatSelection();
+    if (pageId === 'page-shipyard')          populateShipyard();
+    if (pageId === 'page-bestiary')          populateBestiary();
     if (pageId === 'page-equipment-catalog') populateEquipmentCatalog();
-    if (pageId === 'page-scrap-reference') populateScrapReference();
+    if (pageId === 'page-scrap-reference')   populateScrapReference();
 }
 
 function populateBoatSelection() {

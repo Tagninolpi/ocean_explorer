@@ -269,9 +269,42 @@ function applyDamageToPlayer(amount) {
 // GAME OVER
 // ============================================================
 function triggerGameOver() {
+    // Lifesaver check
+    if (typeof checkLifesaver === 'function' && checkLifesaver()) return;
+
+    // Catamaran check
+    if (typeof checkCatamaranDeath === 'function' && checkCatamaranDeath()) return;
+
     cancelAnimationFrame(animationId);
     animationId = null;
-    alert('Game Over!'); // placeholder — replace with proper UI later
+
+    // Clear all timers
+    if (regenTimer) clearInterval(regenTimer);
+    if (typeof waveTimerInterval !== 'undefined' && waveTimerInterval) clearInterval(waveTimerInterval);
+    if (typeof inventory !== 'undefined') Object.values(inventory.timers || {}).forEach(t => clearInterval(t));
+
+    const wn = (typeof waveNumber !== 'undefined') ? waveNumber : 0;
+
+    // Save progress and record result (fire-and-forget; show overlay immediately)
+    if (typeof saveProgress    === 'function') saveProgress();
+    if (typeof recordGameResult === 'function') recordGameResult(wn);
+
+    // Show game over screen
+    const overlay = document.createElement('div');
+    overlay.id = 'game-over-overlay';
+    overlay.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.85);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:1000;color:#fff;font-family:monospace;';
+    overlay.innerHTML = `
+        <div style="font-size:36px;font-weight:bold;color:#ff4444;margin-bottom:16px;">SUNK</div>
+        <div style="font-size:16px;margin-bottom:8px;">Wave reached: ${wn}</div>
+        <div style="font-size:14px;color:#aaa;margin-bottom:24px;">Progress saved.</div>
+        <button onclick="returnToMenu()" style="padding:10px 28px;background:#2255aa;color:#fff;border:none;border-radius:6px;font-size:15px;cursor:pointer;">Return to Menu</button>
+    `;
+    document.body.appendChild(overlay);
+}
+
+function returnToMenu() {
+    const overlay = document.getElementById('game-over-overlay');
+    if (overlay) overlay.remove();
     showPage('page-main-menu');
 }
 
@@ -325,33 +358,41 @@ function checkScrapCollection() {
         const dist = Math.sqrt(dx * dx + dy * dy);
 
         if (dist <= player.reach) {
+            console.log(scrap,i);
             collectScrap(scrap, i);
         }
     }
 }
 
 function collectScrap(scrap, index) {
-    // Check cargo capacity
-    if (inventory.cargoUsed >= inventory.cargoMax) {
-        console.log('Cargo full! Cannot collect scrap.');
+    // Prune expired drops first
+    if (typeof pruneExpiredScrap === 'function') pruneExpiredScrap();
+
+    // Equipment drops don't consume cargo through normal path
+    if (scrap.type !== 'equipment_drop' && inventory.cargoUsed >= inventory.cargoMax) {
+        if (typeof showToast === 'function') showToast('Cargo full!');
         return;
     }
 
-    console.log('Collected scrap:', scrap.type, scrap.amount, 'rarity:', scrap.rarity);
-
-    // Add to inventory via equipment system
-    onScrapCollected(scrap);
+    // Route to scrap handler
+    if (typeof handleScrapCollect === 'function') {
+        handleScrapCollect(scrap);
+    } else {
+        onScrapCollected(scrap);
+    }
 
     // Remove from map
-    mapGrid[scrap.x][scrap.y] = TILE.INTERIOR;
+    mapGrid[scrap.x][scrap.y] = TILE.WATER;
     scrapList.splice(index, 1);
 
-    // Spawn new scrap at random valid tile, min distance from player
-    spawnNewScrap();
+    // Only spawn replacement for map scrap (not enemy drops)
+    if (!scrap._expireAt) {
+        spawnNewScrap();
+    }
 }
 
+// Override spawnNewScrap to also support water tiles (matching map.js placeScrap)
 function spawnNewScrap() {
-    // Collect all valid interior tiles far enough from player
     const minDistTiles = 10;
     const playerTileX = Math.floor(player.px / TILE_SIZE);
     const playerTileY = Math.floor(player.py / TILE_SIZE);
@@ -359,23 +400,116 @@ function spawnNewScrap() {
     const validTiles = [];
     for (let x = 0; x < MAP_SIZE; x++) {
         for (let y = 0; y < MAP_SIZE; y++) {
-            if (mapGrid[x][y] !== TILE.INTERIOR) continue;
-            
+            if (mapGrid[x][y] !== TILE.INTERIOR && mapGrid[x][y] !== TILE.WATER) continue;
             const dx = x - playerTileX;
             const dy = y - playerTileY;
             if (Math.sqrt(dx*dx + dy*dy) < minDistTiles) continue;
-
             validTiles.push({ x, y });
         }
     }
-
-    if (validTiles.length === 0) {
-        console.warn('No valid tiles for scrap spawn');
-        return;
-    }
-
+    if (validTiles.length === 0) return;
     const tile = validTiles[randInt(0, validTiles.length - 1)];
     const newScrap = generateScrapItem(tile.x, tile.y);
     scrapList.push(newScrap);
     mapGrid[tile.x][tile.y] = TILE.SCRAP;
+}
+// ============================================================
+// ENHANCED OBSTACLE RESOLUTION WITH BOAT ABILITIES
+// Wraps the original resolveObstacleCollision
+// ============================================================
+// Override
+function resolveObstacleCollision(obstacle, response) {
+    switch (obstacle.type) {
+        case 'rock':
+            if (typeof destroyerCollisionImmune === 'function' && destroyerCollisionImmune()) return;
+            resolveIslandCollision(response);
+            break;
+
+        case 'iceberg':
+            if (typeof titanicIcebergContact === 'function' && titanicIcebergContact(obstacle)) return;
+            if (typeof destroyerCollisionImmune === 'function' && destroyerCollisionImmune()) return;
+            if (!obstacle.revealed) obstacle.revealed = true;
+            resolveIslandCollision(response);
+            break;
+
+        case 'mine':
+            if (obstacle.playerOwned) return; // player can't trigger own mines
+            // Brigantine check
+            if (typeof brigantineMineCollision === 'function' && brigantineMineCollision(obstacle)) return;
+            // Cruiser: immune to mines
+            if (gameState && gameState.boat.id === 'cruiser') {
+                destroyMine(obstacle);
+                return;
+            }
+            applyDamageToPlayer(obstacle.damage);
+            destroyMine(obstacle);
+            break;
+
+        case 'whirlpool':
+            break; // handled in applyWhirlpoolEffects
+    }
+}
+
+// Override resolveIslandCollision to respect Destroyer
+function resolveIslandCollision(response) {
+    player.px -= response.overlapV.x;
+    player.py -= response.overlapV.y;
+
+    if (Math.abs(player.currentSpeed) < 0.1) return;
+
+    const nx = response.overlapV.x / response.overlap;
+    const ny = response.overlapV.y / response.overlap;
+    const vx = Math.sin(player.heading) * player.currentSpeed;
+    const vy = -Math.cos(player.heading) * player.currentSpeed;
+    const dot = vx * nx + vy * ny;
+    const speed = Math.sqrt(vx*vx + vy*vy);
+    const impactAngle = speed > 0 ? Math.abs(dot) / speed : 0;
+    const rvx = vx - 2 * dot * nx;
+    const rvy = vy - 2 * dot * ny;
+    player.heading = Math.atan2(rvx, -rvy);
+
+    if (typeof destroyerCollisionImmune === 'function' && destroyerCollisionImmune()) return;
+
+    const speedRetention = 1 - (0.4 * impactAngle + 0.1);
+    player.currentSpeed *= speedRetention;
+    const damage = Math.floor(impactAngle * Math.abs(player.currentSpeed) * 2);
+    applyDamageToPlayer(damage);
+}
+
+// Override applyWhirlpoolEffects to support Raft boost
+function applyWhirlpoolEffects() {
+    if (!player) return;
+    const tileX = Math.floor(player.px / TILE_SIZE);
+    const tileY = Math.floor(player.py / TILE_SIZE);
+    const checkRadius = 3;
+    const isRaft = gameState && gameState.boat.id === 'raft';
+
+    for (let dx = -checkRadius; dx <= checkRadius; dx++) {
+        for (let dy = -checkRadius; dy <= checkRadius; dy++) {
+            const tx = tileX + dx;
+            const ty = tileY + dy;
+            if (tx < 0 || tx >= MAP_SIZE || ty < 0 || ty >= MAP_SIZE) continue;
+            const obstacle = obstacleStore[`${tx},${ty}`];
+            if (!obstacle || obstacle.type !== 'whirlpool') continue;
+
+            const cx = tx * TILE_SIZE + TILE_SIZE / 2;
+            const cy = ty * TILE_SIZE + TILE_SIZE / 2;
+            const radiusPx = obstacle.radius * TILE_SIZE;
+            const distX = cx - player.px;
+            const distY = cy - player.py;
+            const dist  = Math.sqrt(distX * distX + distY * distY);
+
+            if (dist < radiusPx) {
+                const pull = obstacle.strength * 0.05;
+                if (isRaft) {
+                    // Raft: boost toward player heading instead of pull
+                    player.currentSpeed = Math.min(player.maxSpeedF, player.currentSpeed + pull * 2);
+                } else {
+                    player.px += (distX / dist) * pull;
+                    player.py += (distY / dist) * pull;
+                    player.currentSpeed *= (1 - obstacle.strength * 0.02);
+                }
+            }
+        }
+    }
 }
